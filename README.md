@@ -40,5 +40,20 @@ npm run build   # type-check + production build (static, deploy anywhere)
 node scripts/gen-algs.mjs   # regenerate + re-verify the algorithm library
 ```
 
+## Deployment (GitHub Pages)
+
+The site is served from the `gh-pages` branch at
+**https://parimaln.github.io/rubikcubeteacher/**
+
+One-time setup: in the repo's **Settings → Pages**, set Source to
+"Deploy from a branch", branch `gh-pages`, folder `/ (root)` (GitHub
+often auto-enables this when the `gh-pages` branch first appears).
+
+To publish an update:
+
+```bash
+npm run deploy   # builds and pushes dist/ to the gh-pages branch
+```
+
 Tech: Vite · React 18 · TypeScript · Tailwind CSS 4 · cubing.js ·
 react-router (hash routing, so it works on any static host).
