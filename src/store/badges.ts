@@ -12,7 +12,12 @@ export interface BadgeDef {
 interface BadgeInputs {
   isLessonComplete: (lesson: Lesson) => boolean;
   isLevelComplete: (level: Level) => boolean;
+  isLevelMastered: (level: Level) => boolean;
   solves: Solve[];
+  xp: number;
+  bestStreak: number;
+  completedChallengeCount: number;
+  reviewCount: number;
 }
 
 interface BadgeWithCheck extends BadgeDef {
@@ -181,6 +186,110 @@ const BADGES: BadgeWithCheck[] = [
       const b = bestMs(i.solves);
       return b !== null && b < 30_000;
     },
+  },
+  // --- Streaks: one concept a day keeps the streak alive ---
+  {
+    id: "streak-3",
+    emoji: "🔥",
+    name: "On Fire",
+    description: "Learn something 3 days in a row.",
+    earned: (i) => i.bestStreak >= 3,
+  },
+  {
+    id: "streak-7",
+    emoji: "🗓️",
+    name: "Week Warrior",
+    description: "Keep a 7-day learning streak.",
+    earned: (i) => i.bestStreak >= 7,
+  },
+  {
+    id: "streak-14",
+    emoji: "🌋",
+    name: "Unstoppable",
+    description: "Keep a 14-day learning streak.",
+    earned: (i) => i.bestStreak >= 14,
+  },
+  {
+    id: "streak-30",
+    emoji: "🌟",
+    name: "Habit Hero",
+    description: "Keep a 30-day learning streak. One concept a day — every day!",
+    earned: (i) => i.bestStreak >= 30,
+  },
+  // --- Challenges ---
+  {
+    id: "first-challenge",
+    emoji: "🎯",
+    name: "Challenge Accepted",
+    description: "Complete your first practice challenge.",
+    earned: (i) => i.completedChallengeCount >= 1,
+  },
+  {
+    id: "five-challenges",
+    emoji: "🏹",
+    name: "Challenge Hunter",
+    description: "Complete 5 practice challenges.",
+    earned: (i) => i.completedChallengeCount >= 5,
+  },
+  {
+    id: "fifteen-challenges",
+    emoji: "🏆",
+    name: "Challenge Champion",
+    description: "Complete 15 practice challenges.",
+    earned: (i) => i.completedChallengeCount >= 15,
+  },
+  ...levels.map(
+    (level): BadgeWithCheck => ({
+      id: `master-level-${level.id}`,
+      emoji: "💎",
+      name: `Level ${level.id} Master`,
+      description: `Finish every lesson AND every challenge in Level ${level.id}: ${level.title}.`,
+      earned: (i) => i.isLevelMastered(level),
+    }),
+  ),
+  // --- Revision: keep old concepts fresh ---
+  {
+    id: "first-review",
+    emoji: "🔁",
+    name: "Memory Refresher",
+    description: "Revise a lesson you finished earlier.",
+    earned: (i) => i.reviewCount >= 1,
+  },
+  {
+    id: "ten-reviews",
+    emoji: "🧠",
+    name: "Brain Booster",
+    description: "Do 10 revisions. Old concepts stay sharp!",
+    earned: (i) => i.reviewCount >= 10,
+  },
+  {
+    id: "twentyfive-reviews",
+    emoji: "🐘",
+    name: "Elephant Memory",
+    description: "Do 25 revisions. You never forget!",
+    earned: (i) => i.reviewCount >= 25,
+  },
+  // --- XP milestones ---
+  {
+    id: "xp-100",
+    emoji: "✨",
+    name: "Rising Star",
+    description: "Earn 100 XP.",
+    earned: (i) => i.xp >= 100,
+  },
+  {
+    id: "xp-500",
+    emoji: "🌠",
+    name: "Shooting Star",
+    description: "Earn 500 XP.",
+    earned: (i) => i.xp >= 500,
+  },
+  {
+    id: "xp-1500",
+    emoji: "💫",
+    name: "Supernova",
+    description: "Earn 1500 XP.",
+    earned: (i) => i.xp >= 1500,
   },
 ];
 

@@ -1,9 +1,28 @@
+import { bestStreak } from "../lib/streak";
 import { allBadges, earnedBadgeIds } from "../store/badges";
 import { useProgress } from "../store/progress";
 
 export default function BadgesPage() {
-  const { isLessonComplete, isLevelComplete, solves } = useProgress();
-  const earned = earnedBadgeIds({ isLessonComplete, isLevelComplete, solves });
+  const {
+    isLessonComplete,
+    isLevelComplete,
+    isLevelMastered,
+    solves,
+    xp,
+    completedChallengeCount,
+    reviewCount,
+    activity,
+  } = useProgress();
+  const earned = earnedBadgeIds({
+    isLessonComplete,
+    isLevelComplete,
+    isLevelMastered,
+    solves,
+    xp,
+    bestStreak: bestStreak(activity),
+    completedChallengeCount,
+    reviewCount,
+  });
   const badges = allBadges();
 
   return (
