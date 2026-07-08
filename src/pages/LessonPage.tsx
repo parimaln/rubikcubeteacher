@@ -1,13 +1,21 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { levels } from "../curriculum";
+import { XP } from "../lib/xp";
 import { useProgress } from "../store/progress";
 import LessonStepView from "../components/LessonStepView";
 
 export default function LessonPage() {
   const { lessonId } = useParams();
   const navigate = useNavigate();
-  const { isStepComplete, markStepComplete } = useProgress();
+  const [searchParams] = useSearchParams();
+  const { isStepComplete, markStepComplete, markReviewed } = useProgress();
+  const reviewMode = searchParams.get("review") === "1";
 
   const found = useMemo(() => {
     for (const level of levels) {
@@ -74,7 +82,24 @@ export default function LessonPage() {
           <p className="text-lg text-slate-600">
             You finished <strong>{lesson.title}</strong>. Awesome work!
           </p>
+          <div className="rounded-2xl bg-violet-50 p-4 text-left">
+            <p className="font-extrabold text-violet-700">
+              🎯 Before racing ahead...
+            </p>
+            <p className="mt-1 text-sm font-semibold text-violet-600">
+              Champions master one lesson at a time. Grab your real cube and
+              try the Level {level.id} challenges to make this skill stick —
+              then come back tomorrow for your next concept and keep your 🔥
+              streak alive!
+            </p>
+          </div>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              to="/challenges"
+              className="rounded-2xl bg-violet-600 px-6 py-3 text-lg font-bold text-white shadow-md transition hover:bg-violet-500"
+            >
+              🎯 Practice challenges
+            </Link>
             {nextLesson && (
               <button
                 onClick={() => {
@@ -84,7 +109,7 @@ export default function LessonPage() {
                 }}
                 className="rounded-2xl bg-indigo-600 px-6 py-3 text-lg font-bold text-white shadow-md transition hover:bg-indigo-500"
               >
-                Next lesson: {nextLesson.emoji} {nextLesson.title} →
+                Next: {nextLesson.emoji} {nextLesson.title} →
               </button>
             )}
             <Link
@@ -101,6 +126,23 @@ export default function LessonPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {reviewMode && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 px-5 py-3">
+          <p className="font-bold text-amber-800">
+            🔁 Revision time! Skim through the steps and try the moves on your
+            real cube.
+          </p>
+          <button
+            onClick={() => {
+              markReviewed(lesson.id);
+              navigate("/");
+            }}
+            className="rounded-xl bg-amber-500 px-4 py-2 font-extrabold text-white shadow-sm transition hover:scale-105 hover:bg-amber-400"
+          >
+            Done revising ✓ +{XP.review} XP
+          </button>
+        </div>
+      )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <Link
           to="/"

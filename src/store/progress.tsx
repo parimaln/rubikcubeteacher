@@ -8,7 +8,11 @@ import {
   type ReactNode,
 } from "react";
 import { levels } from "../curriculum";
+import { challengesForLevel, type Challenge } from "../curriculum/challenges";
 import type { Lesson, Level } from "../curriculum/types";
+import type { ReviewState } from "../lib/review";
+import { dateKey } from "../lib/streak";
+import { XP } from "../lib/xp";
 
 export interface Solve {
   id: string;
@@ -20,6 +24,16 @@ export interface Solve {
 interface StoredProgress {
   completedSteps: Record<string, true>;
   solves: Solve[];
+  /** Total XP earned by this profile. */
+  xp: number;
+  /** challengeId → repetitions done so far. */
+  challengeReps: Record<string, number>;
+  /** lessonId → ISO date the lesson was first completed. */
+  lessonCompletedAt: Record<string, string>;
+  /** lessonId → spaced-revision state. */
+  reviews: Record<string, ReviewState>;
+  /** YYYY-MM-DD → learning actions that day (drives the streak). */
+  activity: Record<string, number>;
 }
 
 interface ProgressContextValue {
@@ -33,25 +47,52 @@ interface ProgressContextValue {
   solves: Solve[];
   addSolve: (ms: number, scramble: string) => void;
   deleteSolve: (id: string) => void;
+  xp: number;
+  challengeReps: (challengeId: string) => number;
+  isChallengeComplete: (challenge: Challenge) => boolean;
+  completedChallengeCount: number;
+  addChallengeRep: (challenge: Challenge) => void;
+  isLevelMastered: (level: Level) => boolean;
+  masteredLevelCount: number;
+  reviews: Record<string, ReviewState>;
+  lessonCompletedAt: Record<string, string>;
+  markReviewed: (lessonId: string) => void;
+  reviewCount: number;
+  activity: Record<string, number>;
   resetAll: () => void;
 }
 
-const STORAGE_KEY = "cube-academy-progress-v1";
+function emptyProgress(): StoredProgress {
+  return {
+    completedSteps: {},
+    solves: [],
+    xp: 0,
+    challengeReps: {},
+    lessonCompletedAt: {},
+    reviews: {},
+    activity: {},
+  };
+}
 
-function load(): StoredProgress {
+function load(storageKey: string): StoredProgress {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
-      const parsed = JSON.parse(raw) as StoredProgress;
+      const parsed = JSON.parse(raw) as Partial<StoredProgress>;
       return {
         completedSteps: parsed.completedSteps ?? {},
         solves: parsed.solves ?? [],
+        xp: parsed.xp ?? 0,
+        challengeReps: parsed.challengeReps ?? {},
+        lessonCompletedAt: parsed.lessonCompletedAt ?? {},
+        reviews: parsed.reviews ?? {},
+        activity: parsed.activity ?? {},
       };
     }
   } catch {
     // corrupted storage — start fresh
   }
-  return { completedSteps: {}, solves: [] };
+  return emptyProgress();
 }
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -60,12 +101,36 @@ export function stepKey(lessonId: string, stepId: string) {
   return `${lessonId}/${stepId}`;
 }
 
-export function ProgressProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoredProgress>(load);
+function lessonById(lessonId: string): Lesson | undefined {
+  for (const level of levels) {
+    const lesson = level.lessons.find((l) => l.id === lessonId);
+    if (lesson) return lesson;
+  }
+  return undefined;
+}
+
+/** Bump today's activity counter and add XP — every learning action does this. */
+function logAction(s: StoredProgress, xpGained: number): StoredProgress {
+  const today = dateKey();
+  return {
+    ...s,
+    xp: s.xp + xpGained,
+    activity: { ...s.activity, [today]: (s.activity[today] ?? 0) + 1 },
+  };
+}
+
+export function ProgressProvider({
+  storageKey,
+  children,
+}: {
+  storageKey: string;
+  children: ReactNode;
+}) {
+  const [state, setState] = useState<StoredProgress>(() => load(storageKey));
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }, [storageKey, state]);
 
   const isStepComplete = useCallback(
     (lessonId: string, stepId: string) =>
@@ -74,10 +139,32 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   );
 
   const markStepComplete = useCallback((lessonId: string, stepId: string) => {
-    setState((s) => ({
-      ...s,
-      completedSteps: { ...s.completedSteps, [stepKey(lessonId, stepId)]: true },
-    }));
+    setState((s) => {
+      const key = stepKey(lessonId, stepId);
+      if (s.completedSteps[key]) return s; // already done — no double XP
+      let next = logAction(s, XP.step);
+      next = {
+        ...next,
+        completedSteps: { ...next.completedSteps, [key]: true },
+      };
+      // Stamp the lesson-completion date the moment its last step is done —
+      // this is what schedules the lesson for spaced revision later.
+      const lesson = lessonById(lessonId);
+      if (
+        lesson &&
+        !next.lessonCompletedAt[lessonId] &&
+        lesson.steps.every((st) => next.completedSteps[stepKey(lessonId, st.id)])
+      ) {
+        next = {
+          ...next,
+          lessonCompletedAt: {
+            ...next.lessonCompletedAt,
+            [lessonId]: new Date().toISOString(),
+          },
+        };
+      }
+      return next;
+    });
   }, []);
 
   const lessonProgress = useCallback(
@@ -131,7 +218,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const addSolve = useCallback((ms: number, scramble: string) => {
     setState((s) => ({
-      ...s,
+      ...logAction(s, XP.solve),
       solves: [
         ...s.solves,
         {
@@ -148,9 +235,74 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, solves: s.solves.filter((x) => x.id !== id) }));
   }, []);
 
-  const resetAll = useCallback(() => {
-    setState({ completedSteps: {}, solves: [] });
+  const challengeReps = useCallback(
+    (challengeId: string) => state.challengeReps[challengeId] ?? 0,
+    [state.challengeReps],
+  );
+
+  const isChallengeComplete = useCallback(
+    (challenge: Challenge) => challengeReps(challenge.id) >= challenge.reps,
+    [challengeReps],
+  );
+
+  const addChallengeRep = useCallback((challenge: Challenge) => {
+    setState((s) => {
+      const current = s.challengeReps[challenge.id] ?? 0;
+      if (current >= challenge.reps) return s; // already mastered
+      const finishing = current + 1 === challenge.reps;
+      const gained = XP.challengeRep + (finishing ? XP.challengeComplete : 0);
+      return {
+        ...logAction(s, gained),
+        challengeReps: { ...s.challengeReps, [challenge.id]: current + 1 },
+      };
+    });
   }, []);
+
+  const isLevelMastered = useCallback(
+    (level: Level) =>
+      isLevelComplete(level) &&
+      challengesForLevel(level.id).every((c) => isChallengeComplete(c)),
+    [isLevelComplete, isChallengeComplete],
+  );
+
+  const markReviewed = useCallback((lessonId: string) => {
+    setState((s) => {
+      const prev = s.reviews[lessonId];
+      return {
+        ...logAction(s, XP.review),
+        reviews: {
+          ...s.reviews,
+          [lessonId]: {
+            count: (prev?.count ?? 0) + 1,
+            last: new Date().toISOString(),
+          },
+        },
+      };
+    });
+  }, []);
+
+  const resetAll = useCallback(() => {
+    setState(emptyProgress());
+  }, []);
+
+  const completedChallengeCount = useMemo(
+    () =>
+      levels
+        .flatMap((level) => challengesForLevel(level.id))
+        .filter((c) => (state.challengeReps[c.id] ?? 0) >= c.reps).length,
+    [state.challengeReps],
+  );
+
+  const masteredLevelCount = useMemo(
+    () => levels.filter((level) => isLevelMastered(level)).length,
+    [isLevelMastered],
+  );
+
+  const reviewCount = useMemo(
+    () =>
+      Object.values(state.reviews).reduce((sum, r) => sum + r.count, 0),
+    [state.reviews],
+  );
 
   const value = useMemo(
     () => ({
@@ -164,6 +316,18 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       solves: state.solves,
       addSolve,
       deleteSolve,
+      xp: state.xp,
+      challengeReps,
+      isChallengeComplete,
+      completedChallengeCount,
+      addChallengeRep,
+      isLevelMastered,
+      masteredLevelCount,
+      reviews: state.reviews,
+      lessonCompletedAt: state.lessonCompletedAt,
+      markReviewed,
+      reviewCount,
+      activity: state.activity,
       resetAll,
     }),
     [
@@ -175,8 +339,20 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       isLevelComplete,
       isLevelUnlocked,
       state.solves,
+      state.xp,
+      state.reviews,
+      state.lessonCompletedAt,
+      state.activity,
       addSolve,
       deleteSolve,
+      challengeReps,
+      isChallengeComplete,
+      completedChallengeCount,
+      addChallengeRep,
+      isLevelMastered,
+      masteredLevelCount,
+      markReviewed,
+      reviewCount,
       resetAll,
     ],
   );

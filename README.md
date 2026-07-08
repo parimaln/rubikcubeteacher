@@ -15,9 +15,21 @@ speedcubing with timed practice.
 | 4 — Full CFOP | Complete algorithm library: 21 PLLs + all 57 OLL cases, pro F2L habits |
 | 5 — Speed Training | WCA-style timer with 15s inspection, ao5/ao12 stats, training plans |
 
-Plus: 🏅 badges, 📖 an animated algorithm library with a flashcard trainer,
-⏱️ a timer with scramble generation and solve history — all progress saved in
-the browser (no accounts, no backend).
+Plus:
+
+- 👥 **Profiles** — every kid gets their own progress, streaks and badges
+- 🔥 **Daily streaks** — one concept a day keeps the streak alive, with a
+  "Today's Mission" card and a 7-day activity strip
+- ✨ **XP & ranks** — every step, challenge, revision and timed solve earns
+  XP; climb from 🐣 Cubie Rookie to 👑 Cube Legend
+- 🎯 **Real-cube challenges** — hands-on practice tasks for every level;
+  master all of a level's lessons *and* challenges to earn its 💎
+- 🔁 **Spaced revision** — finished lessons come back for a quick review
+  after 3 / 7 / 14 / 30 days so old concepts never fade
+- 🏅 **30+ badges**, 📖 an animated algorithm library with a flashcard
+  trainer, ⏱️ a timer with scramble generation and solve history
+
+All progress is saved in the browser (no accounts, no backend).
 
 ## Every algorithm is machine-verified
 
@@ -42,18 +54,16 @@ node scripts/gen-algs.mjs   # regenerate + re-verify the algorithm library
 
 ## Deployment (GitHub Pages)
 
-The site is served from the `gh-pages` branch at
-**https://parimaln.github.io/rubikcubeteacher/**
+The site is served at **https://parimaln.github.io/rubikcubeteacher/**
 
-One-time setup: in the repo's **Settings → Pages**, set Source to
-"Deploy from a branch", branch `gh-pages`, folder `/ (root)` (GitHub
-often auto-enables this when the `gh-pages` branch first appears).
+Deployment is fully automatic: every push to `main` runs
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds
+the app and publishes `dist/` straight to GitHub Pages — no `gh-pages`
+branch, no manual deploy step.
 
-To publish an update:
-
-```bash
-npm run deploy   # builds and pushes dist/ to the gh-pages branch
-```
+One-time setup: in the repo's **Settings → Pages**, set **Source** to
+**"GitHub Actions"**. A deploy can also be triggered by hand from the
+Actions tab (`workflow_dispatch`).
 
 Tech: Vite · React 18 · TypeScript · Tailwind CSS 4 · cubing.js ·
 react-router (hash routing, so it works on any static host).
