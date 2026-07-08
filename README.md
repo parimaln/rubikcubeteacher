@@ -56,14 +56,21 @@ node scripts/gen-algs.mjs   # regenerate + re-verify the algorithm library
 
 The site is served at **https://parimaln.github.io/rubikcubeteacher/**
 
-Deployment is fully automatic: every push to `main` runs
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds
-the app and publishes `dist/` straight to GitHub Pages — no `gh-pages`
-branch, no manual deploy step.
+Deployment is fully automatic: every push to `main` runs the
+`Deploy to GitHub Pages` workflow, which builds the app and publishes
+`dist/` straight to GitHub Pages — no `gh-pages` branch, no manual deploy
+step.
 
-One-time setup: in the repo's **Settings → Pages**, set **Source** to
-**"GitHub Actions"**. A deploy can also be triggered by hand from the
-Actions tab (`workflow_dispatch`).
+One-time setup:
+
+1. Copy [`docs/github-pages-deploy.yml`](docs/github-pages-deploy.yml) to
+   `.github/workflows/deploy.yml` (bot tokens can't create workflow files,
+   so this one move is manual).
+2. In the repo's **Settings → Pages**, set **Source** to
+   **"GitHub Actions"**.
+
+A deploy can also be triggered by hand from the Actions tab
+(`workflow_dispatch`).
 
 Tech: Vite · React 18 · TypeScript · Tailwind CSS 4 · cubing.js ·
 react-router (hash routing, so it works on any static host).
